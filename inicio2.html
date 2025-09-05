@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+    =====================================================================
+    INICIO DASHBOARD — SUBASTA VEHICULAR
+    Archivo: inicio.html
+    Descripción:
+      - Estructura principal del dashboard de cálculo financiero para subastas vehiculares.
+      - Incluye:
+          * Header con branding
+          * Sidebar de navegación
+          * Área principal con formulario (Datos del Vehículo, Papeletas, Gastos)
+          * Resumen Financiero (conversión USD ↔ PEN)
+          * Botón para exportar a PDF (profesional)
+          * Chatbot con ícono nuevo
+      - Este HTML se apoya en:
+          * inicio.css  → estilos y layout
+          * inicio.js   → lógica de cálculo, conversión, PDF, UI
+          * chat.js     → comportamiento del bot
+      - Librerías:
+          * Font Awesome para iconos
+          * jsPDF (+ autotable) y html2canvas para PDF
+    =====================================================================
+  -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Subasta Vehicular — Panel de Cálculo</title>
+
+  <!-- Fuentes y Iconos -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="inicio.css" />
+
+  <!-- Librerías para PDF -->
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+</head>
+<body>
+  <!-- ================================================================ -->
+  <!-- HEADER (Topbar)                                                  -->
+  <!-- ================================================================ -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand">
+        <!-- Logo (SVG simple para nitidez en PDF si se usa como base) -->
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 64 64" class="brand-svg" role="img" aria-label="Subasta Vehicular Logo">
+            <defs>
+              <linearGradient id="gradLogo" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#00DBDE"/>
+                <stop offset="100%" stop-color="#FC00FF"/>
+              </linearGradient>
+            </defs>
+            <circle cx="32" cy="32" r="30" fill="url(#gradLogo)" opacity="0.15"/>
+            <path d="M10 36h44l-4-8H14l-4 8z" fill="url(#gradLogo)" />
+            <circle cx="20" cy="38.5" r="4" fill="#fff"/>
+            <circle cx="44" cy="38.5" r="4" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Subasta <span class="gradient-text">Vehicular</span></h1>
+          <p class="brand-sub">Panel de Cálculo</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Selector de tema si a futuro quieres (dejamos como placeholder) -->
+      <button class="btn ghost" id="btnToggleSidebar" title="Contraer/Expandir menú">
+        <i class="fa-solid fa-bars-staggered"></i>
+      </button>
+      <div class="divider-vertical" role="separator" aria-hidden="true"></div>
+
+      <!-- Moneda Base Toggle (S/ ↔ $) -->
+      <div class="currency-toggle" role="group" aria-label="Moneda base">
+        <button class="toggle-chip active" id="chipPen" data-currency="PEN" aria-pressed="true">S/ PEN</button>
+        <button class="toggle-chip" id="chipUsd" data-currency="USD" aria-pressed="false">$ USD</button>
+      </div>
+
+      <div class="divider-vertical" role="separator" aria-hidden="true"></div>
+
+      <!-- Tipo de Cambio + Swap -->
+      <div class="fx-box">
+        <label for="tipoCambio" class="fx-label">Tipo de Cambio</label>
+        <div class="fx-row">
+          <span class="fx-prefix">USD → PEN</span>
+          <input type="number" class="fx-input" id="tipoCambio" step="0.0001" value="3.8000" min="0" />
+          <button class="btn icon" id="btnSwapFX" title="Invertir conversión"><i class="fa-solid fa-right-left"></i></button>
+        </div>
+        <small class="fx-help" id="fxDirection">Convirtiendo a moneda base: S/ PEN</small>
+      </div>
+
+      <!-- Botón Exportar PDF -->
+      <button class="btn primary" id="btnExportPdf" title="Exportar PDF">
+        <i class="fa-solid fa-file-pdf"></i>
+        <span>Exportar PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================================================================ -->
+  <!-- LAYOUT: Sidebar + Main                                           -->
+  <!-- ================================================================ -->
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="app-sidebar" id="appSidebar" aria-label="Menú lateral">
+      <nav class="sidebar-nav">
+        <a class="nav-item active" href="#" data-nav="inicio">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Inicio</span>
+        </a>
+        <!--<a class="nav-item" href="subasta.html" data-nav="subastas">
+          <i class="fa-solid fa-hammer"></i>
+          <span>Subastas(Sin disponibilidad)</span>
+        </a>
+        <a class="nav-item" href="vehiculos.html" data-nav="vehiculos">
+          <i class="fa-solid fa-car-side"></i>
+          <span>Vehículos(Sin disponibilidad)</span>
+        </a>
+        <a class="nav-item" href="reportes.html" data-nav="reportes">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Reportes(Sin disponibilidad)</span>
+        </a>-->
+        <a class="nav-item" href="ayuda2.html" data-nav="ayuda">
+          <i class="fa-solid fa-circle-question"></i>
+          <span>Ayuda</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="mini-stats">
+          <div class="stat">
+            <span class="stat-label">Sesión</span>
+            <span class="stat-value">Activa</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Versión</span>
+            <span class="stat-value">2.0.0</span>
+          </div>
+        </div>
+        <p class="legal">
+          © 2025 Subasta Vehicular<br/>Todos los derechos reservados.
+        </p>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="app-main">
+      <!-- Breadcrumbs / Ruta -->
+      <div class="breadcrumbs">
+        <a href="#" class="crumb">Inicio</a>
+        <span class="crumb-divider">/</span>
+        <span class="crumb current">Calculadora Vehicular</span>
+      </div>
+
+      <!-- Card grande con glassmorphism -->
+      <section class="card glass mega-card">
+        <header class="card-header">
+          <div class="card-title-wrap">
+            <h2 class="card-title">
+              <i class="fa-solid fa-calculator"></i>
+              Calculadora <span class="gradient-text">Vehicular</span>
+            </h2>
+            <p class="card-subtitle">Ingresa la información del vehículo, obligaciones y gastos para obtener un resumen financiero claro. Convierte entre S/ y $ con un click.</p>
+          </div>
+          <div class="card-actions">
+            <button class="btn ghost" id="btnResetForm" title="Limpiar valores">
+              <i class="fa-solid fa-eraser"></i> Limpiar
+            </button>
+          </div>
+        </header>
+
+        <div class="card-body">
+          <!-- Grid de 2 columnas -->
+          <div class="grid-2">
+
+            <!-- Columna Izquierda: Formularios -->
+            <div class="col">
+              <!-- ===================== Datos del Vehículo ==================== -->
+              <article class="panel">
+                <header class="panel-header">
+                  <h3 class="panel-title"><i class="fa-solid fa-car"></i> Datos del Vehículo</h3>
+                  <!-- Moneda local para este bloque: hereda moneda base. Campos en número limpio. -->
+                </header>
+                <div class="panel-body">
+                  <div class="form-grid">
+                    <!-- Presupuesto -->
+                    <div class="form-field">
+                      <label for="presupuestoCliente" class="label">
+                        <i class="fa-solid fa-wallet"></i> Presupuesto del Comprador
+                      </label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPresupuesto">S/</span>
+                        <input type="number" inputmode="decimal" id="presupuestoCliente" placeholder="19000" min="0" step="0.01" />
+                      </div>
+                      <small class="hint">Presupuesto total disponible del cliente.</small>
+                    </div>
+
+                    <!-- Valor adjudicado -->
+                    <div class="form-field">
+                      <label for="precioBase" class="label">
+                        <i class="fa-solid fa-gavel"></i> Valor Adjudicado en Subasta
+                      </label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefBase">S/</span>
+                        <input type="number" inputmode="decimal" id="precioBase" placeholder="14500" min="0" step="0.01"/>
+                      </div>
+                      <small class="hint">Monto adjudicado durante la subasta.</small>
+                    </div>
+
+                    <!-- Comisión gestión -->
+                    <div class="form-field">
+                      <label for="comisionPct" class="label">
+                        <i class="fa-solid fa-percent"></i> Comisión por Gestión (%)
+                      </label>
+                      <div class="input-wrap">
+                        <span class="input-prefix">%</span>
+                        <input type="number" inputmode="decimal" id="comisionPct" placeholder="10" min="0" step="0.01"/>
+                      </div>
+                      <small class="hint">Porcentaje sobre el valor adjudicado.</small>
+                    </div>
+
+                    <!-- Precio de mercado -->
+                    <div class="form-field">
+                      <label for="precioActual" class="label">
+                        <i class="fa-solid fa-tags"></i> Precio de Mercado Actual
+                      </label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefMercado">S/</span>
+                        <input type="number" inputmode="decimal" id="precioActual" placeholder="22000" min="0" step="0.01"/>
+                      </div>
+                      <small class="hint">Valor estimado de mercado hoy.</small>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <!-- =================== Papeletas y Obligaciones ================= -->
+              <article class="panel">
+                <header class="panel-header">
+                  <h3 class="panel-title"><i class="fa-solid fa-file-invoice-dollar"></i> Papeletas y Obligaciones Pendientes</h3>
+                  <div class="panel-actions">
+                    <!-- Moneda local del bloque -->
+                    <div class="segmented" role="group" aria-label="Moneda Papeletas">
+                      <button class="seg-btn active" id="papMonPen" data-currency="PEN" aria-pressed="true">S/</button>
+                      <button class="seg-btn" id="papMonUsd" data-currency="USD" aria-pressed="false">$</button>
+                    </div>
+                    <small class="seg-hint">Se suman en la moneda elegida y se convierten a la moneda base al calcular.</small>
+                  </div>
+                </header>
+                <div class="panel-body">
+                  <div class="form-grid grid-3">
+                    <!-- ATU -->
+                    <div class="form-field">
+                      <label for="papATU" class="label"><i class="fa-solid fa-bus"></i> ATU</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapATU">S/</span>
+                        <input type="number" id="papATU" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Callao -->
+                    <div class="form-field">
+                      <label for="papCallao" class="label"><i class="fa-solid fa-anchor"></i> Callao</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapCallao">S/</span>
+                        <input type="number" id="papCallao" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Gas Natural -->
+                    <div class="form-field">
+                      <label for="papGas" class="label"><i class="fa-solid fa-leaf"></i> Gas Natural</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapGas">S/</span>
+                        <input type="number" id="papGas" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Gravamen -->
+                    <div class="form-field">
+                      <label for="papGravamen" class="label"><i class="fa-solid fa-file-contract"></i> Gravamen</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapGravamen">S/</span>
+                        <input type="number" id="papGravamen" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Impuestos Vehiculares -->
+                    <div class="form-field">
+                      <label for="papImpuesto" class="label"><i class="fa-solid fa-car-burst"></i> Impuestos Vehiculares</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapImpuesto">S/</span>
+                        <input type="number" id="papImpuesto" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Otros -->
+                    <div class="form-field">
+                      <label for="papOtros" class="label"><i class="fa-solid fa-ellipsis"></i> Otros</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapOtros">S/</span>
+                        <input type="number" id="papOtros" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- SAT -->
+                    <div class="form-field">
+                      <label for="papSAT" class="label"><i class="fa-solid fa-building-columns"></i> SAT</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapSAT">S/</span>
+                        <input type="number" id="papSAT" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- SUTRAN -->
+                    <div class="form-field">
+                      <label for="papSUTRAN" class="label"><i class="fa-solid fa-shield-halved"></i> SUTRAN</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefPapSUTRAN">S/</span>
+                        <input type="number" id="papSUTRAN" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <!-- ======================== Gastos Adicionales ================== -->
+              <article class="panel">
+                <header class="panel-header">
+                  <h3 class="panel-title"><i class="fa-solid fa-toolbox"></i> Gastos Adicionales</h3>
+                  <div class="panel-actions">
+                    <div class="segmented" role="group" aria-label="Moneda Gastos">
+                      <button class="seg-btn active" id="gasMonPen" data-currency="PEN" aria-pressed="true">S/</button>
+                      <button class="seg-btn" id="gasMonUsd" data-currency="USD" aria-pressed="false">$</button>
+                    </div>
+                    <small class="seg-hint">Se suman en esta moneda y se convierten a la moneda base al calcular.</small>
+                  </div>
+                </header>
+                <div class="panel-body">
+                  <div class="form-grid grid-3">
+                    <!-- Combustible -->
+                    <div class="form-field">
+                      <label for="gasCombustible" class="label"><i class="fa-solid fa-gas-pump"></i> Combustible</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasComb">S/</span>
+                        <input type="number" id="gasCombustible" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Estancia/Almacenaje -->
+                    <div class="form-field">
+                      <label for="gasEstancia" class="label"><i class="fa-solid fa-warehouse"></i> Estancia/Almacenaje</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasEst">S/</span>
+                        <input type="number" id="gasEstancia" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Lavado y Detallado -->
+                    <div class="form-field">
+                      <label for="gasLavado" class="label"><i class="fa-solid fa-shower"></i> Lavado y Detallado</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasLav">S/</span>
+                        <input type="number" id="gasLavado" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Notaría -->
+                    <div class="form-field">
+                      <label for="gasNotaria" class="label"><i class="fa-solid fa-file-signature"></i> Notaría</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasNot">S/</span>
+                        <input type="number" id="gasNotaria" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Servicio de Grúa -->
+                    <div class="form-field">
+                      <label for="gasGrua" class="label"><i class="fa-solid fa-truck-monster"></i> Servicio de Grúa</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasGrua">S/</span>
+                        <input type="number" id="gasGrua" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Servicio Mecánico -->
+                    <div class="form-field">
+                      <label for="gasMecanico" class="label"><i class="fa-solid fa-screwdriver-wrench"></i> Servicio Mecánico</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasMec">S/</span>
+                        <input type="number" id="gasMecanico" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Trabajo de Chapería -->
+                    <div class="form-field">
+                      <label for="gasChapero" class="label"><i class="fa-solid fa-hammer"></i> Trabajo de Chapería</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasChap">S/</span>
+                        <input type="number" id="gasChapero" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Trámite de Placa/Tarjeta -->
+                    <div class="form-field">
+                      <label for="gasPlaca" class="label"><i class="fa-regular fa-id-card"></i> Trámite de Placa/Tarjeta</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasPlaca">S/</span>
+                        <input type="number" id="gasPlaca" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                    <!-- Traslado en Cigüeña -->
+                    <div class="form-field">
+                      <label for="gasCiguena" class="label"><i class="fa-solid fa-truck-ramp-box"></i> Traslado en Cigüeña</label>
+                      <div class="input-wrap">
+                        <span class="input-prefix" id="prefGasCig">S/</span>
+                        <input type="number" id="gasCiguena" placeholder="0" min="0" step="0.01"/>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Columna Derecha: Resumen -->
+            <div class="col">
+              <article class="panel highlight">
+                <header class="panel-header">
+                  <h3 class="panel-title"><i class="fa-solid fa-clipboard-check"></i> Resumen Financiero</h3>
+                  <div class="panel-actions">
+                    <!-- Hereda moneda base global S/ o $ -->
+                    <span class="badge" id="badgeMonedaBase">Moneda Base: S/ PEN</span>
+                  </div>
+                </header>
+                <div class="panel-body">
+                  <div class="summary-grid">
+                    <div class="summary-item">
+                      <span class="sum-label">Costo Referencial del Vehículo</span>
+                      <span class="sum-value" id="sumCostoVeh">S/ 0.00</span>
+                      <small class="sum-hint">Valor adjudicado + comisiones.</small>
+                    </div>
+                    <div class="summary-item">
+                      <span class="sum-label">Papeletas (convertidas a base)</span>
+                      <span class="sum-value" id="sumPapeletas">S/ 0.00</span>
+                      <small class="sum-hint">Suma del bloque en su moneda → base.</small>
+                    </div>
+                    <div class="summary-item">
+                      <span class="sum-label">Gastos Adicionales (convertidos)</span>
+                      <span class="sum-value" id="sumGastos">S/ 0.00</span>
+                      <small class="sum-hint">Suma del bloque en su moneda → base.</small>
+                    </div>
+                    <div class="summary-item">
+                      <span class="sum-label">Total a Pagar</span>
+                      <span class="sum-value strong" id="sumTotal">S/ 0.00</span>
+                      <small class="sum-hint">Incluye todo lo anterior.</small>
+                    </div>
+                    <div class="summary-item">
+                      <span class="sum-label">Aproximación en moneda secundaria</span>
+                      <span class="sum-value" id="sumAlt">$ 0.00</span>
+                      <small class="sum-hint">Conversión inmediata al otro tipo de moneda.</small>
+                    </div>
+                    <div class="summary-item">
+                      <span class="sum-label">Ahorro vs. Mercado</span>
+                      <span class="sum-value" id="sumAhorro">S/ 0.00</span>
+                      <small class="sum-hint">Precio de Mercado − Total.</small>
+                    </div>
+                    <div class="summary-item wide">
+                      <span class="sum-label">Diferencia con Presupuesto</span>
+                      <span class="sum-value" id="sumDiferencia">S/ 0.00</span>
+                      <small class="sum-hint">Presupuesto − Total.</small>
+                    </div>
+                  </div>
+
+                  <div class="summary-actions">
+                    <button class="btn secondary" id="btnCalcular">
+                      <i class="fa-solid fa-play"></i> Calcular
+                    </button>
+                    <button class="btn outline" id="btnLlenarDemo">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Llenar Ejemplo
+                    </button>
+                  </div>
+
+                  <!-- Área a capturar para PDF -->
+                  <div id="pdfCaptureArea" class="pdf-capture">
+                    <h4 class="pdf-title">Resumen Financiero — Subasta Vehicular</h4>
+                    <div class="pdf-meta">
+                      <span id="pdfMonedaBase">Moneda base: S/ PEN</span>
+                      <span id="pdfFecha"></span>
+                    </div>
+                    <div class="pdf-table" id="pdfTablaResultados">
+                      <!-- La tabla se genera desde JS (inicio.js) con jsPDF autotable -->
+                    </div>
+                  </div>
+
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <div class="footer-left">
+          <span>Construido por 😺✨</span>
+        </div>
+        <div class="footer-right">
+          <a href="#" class="footer-link"><i class="fa-brands fa-facebook"></i></a>
+          <a href="#" class="footer-link"><i class="fa-brands fa-instagram"></i></a>
+          <a href="https://wa.me/+5192772047" target="_blank" class="footer-link"><i class="fa-brands fa-whatsapp"></i></a>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- Chatbot Toggle + Box                                            -->
+  <!-- ================================================================ -->
+  <button class="chatbot-toggle" id="chatbotToggle" title="Asistente de ayuda">
+    <!-- Nuevo ícono bonito minimalista (SVG custom) -->
+    <svg viewBox="0 0 48 48" class="bot-icon" aria-hidden="true">
+      <defs>
+        <linearGradient id="botGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#8E2DE2"/>
+          <stop offset="100%" stop-color="#4A00E0"/>
+        </linearGradient>
+      </defs>
+      <circle cx="24" cy="24" r="22" fill="url(#botGrad)" opacity="0.25"></circle>
+      <rect x="10" y="14" width="28" height="18" rx="9" ry="9" fill="url(#botGrad)"></rect>
+      <circle cx="19" cy="23" r="3" fill="#fff"></circle>
+      <circle cx="29" cy="23" r="3" fill="#fff"></circle>
+      <rect x="20" y="30" width="8" height="2" rx="1" fill="#fff"></rect>
+      <rect x="22.5" y="10" width="3" height="6" rx="1.5" fill="url(#botGrad)"></rect>
+    </svg>
+    <span class="chatbot-dot" id="chatbotNotify">●</span>
+  </button>
+
+  <section class="chatbot-box" id="chatbotBox" aria-live="polite" aria-label="Asistente de ayuda">
+    <header class="chatbot-header">
+      <div class="chatbot-title">
+        <span class="bot-avatar" aria-hidden="true">
+          <!-- mismo SVG en mini -->
+          <svg viewBox="0 0 48 48" class="bot-icon-sm"><use href="#"></use></svg>
+        </span>
+        <div class="title-stack">
+          <h3>Miausistente Consultor</h3>
+          <small class="muted">¿En qué te ayudo hoy?</small>
+        </div>
+      </div>
+      <button class="btn icon close" id="closeChatbot" aria-label="Cerrar chat">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+    <div class="chatbot-body" id="chatBody">
+      <!-- Mensaje de bienvenida -->
+      <div class="bubble assistant">
+        <p>¡Hola! Soy tu asistente para subastas 🚗✨<br/>Puedo ayudarte a calcular, interpretar resultados y preparar un PDF profesional.</p>
+      </div>
+
+      <!-- Acciones rápidas -->
+      <div class="quick-actions">
+        <button class="qa-btn" data-intent="como-empezar"><i class="fa-solid fa-circle-play"></i> Cómo empezar</button>
+        <button class="qa-btn" data-intent="calculo"><i class="fa-solid fa-calculator"></i> Explica el cálculo</button>
+        <button class="qa-btn" data-intent="papeletas"><i class="fa-solid fa-file-invoice-dollar"></i> Sobre papeletas</button>
+        <button class="qa-btn" data-intent="gastos"><i class="fa-solid fa-toolbox"></i> Sobre gastos</button>
+        <button class="qa-btn" data-intent="pdf"><i class="fa-solid fa-file-pdf"></i> Generar PDF</button>
+      </div>
+    </div>
+
+    <footer class="chatbot-footer">
+      <form id="chatForm" class="chat-form" autocomplete="off">
+        <input type="text" id="chatInput" placeholder="Escribe tu pregunta..." aria-label="Escribe tu pregunta"/>
+        <button class="btn send" id="chatSend" aria-label="Enviar">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </footer>
+  </section>
+
+  <!-- Scripts principales -->
+  <script defer src="inicio.js"></script>
+  <script defer src="chat.js"></script>
+</body>
+</html>
